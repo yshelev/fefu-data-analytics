@@ -1,0 +1,80 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: 
+      - network
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks: 
+      - network
+  redash:
+    image: redash/redash:latest
+    container_name: redash
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      REDASH_REDIS_URL: redis://redis:6379/0
+      REDASH_DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/redash"
+      REDASH_SECRET_KEY: ${REDASH_SECRET_KEY}
+      REDASH_COOKIE_SECRET: "${REDASH_COOKIE_SECRET}"
+    ports:
+      - "5000:5000"
+    networks: 
+      - network
+  worker:
+    image: redash/redash:latest
+    container_name: redash_worker
+    depends_on:
+      - redash
+      - redis
+      - postgres
+    environment:
+      REDASH_DATABASE_URL: "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/redash"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_COOKIE_SECRET: "${REDASH_COOKIE_SECRET}"
+      REDASH_SECRET_KEY: "${REDASH_SECRET_KEY}"
+      QUEUES: "queries,celery"
+    networks:
+      - network
+    restart: unless-stopped
+    command: scheduler
+  generator:
+    build: 
+      context: ./generator
+      dockerfile: Dockerfile
+    container_name: generator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - network
+
+volumes:
+  postgres_data:
+networks:
+  network:
+    driver: bridge

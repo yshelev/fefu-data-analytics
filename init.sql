@@ -1,0 +1,55 @@
+CREATE DATABASE redash;
+
+CREATE TABLE IF NOT EXISTS categories (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    parent_category_id INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_category_id) REFERENCES categories(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    category_id INT NOT NULL,
+    price DECIMAL(10, 2) NOT NULL,
+    rating DECIMAL(3, 2) DEFAULT 0.00,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    phone VARCHAR(20),
+    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1, 
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE RESTRICT,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+);
+
+CREATE TABLE IF NOT EXISTS wishlist (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL,
+    product_id INT NOT NULL,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    notes VARCHAR(255),
+
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
